@@ -1,5 +1,5 @@
-// Nom:
-// NIU:
+// Nom: Mario Roda Sevilla
+// NIU: 1792216
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +23,7 @@ int main(){
   unsigned numconfactual = 0, numconf = 1;
   char configuracio_actual[6];
   while(numconfactual < numconf && numconf < MAXCONF){
-    trcpy(configuracio_actual, configuracions[numconfactual].posicio);
+    strcpy(configuracio_actual, configuracions[numconfactual].posicio);
     for(i = 0; i < 4; i++){
       // Situació 1: canvi "D_" per "_D"
       if(configuracio_actual[i] == 'D' && configuracio_actual[i+1] == '_'){
