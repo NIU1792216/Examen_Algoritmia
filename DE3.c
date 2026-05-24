@@ -7,19 +7,28 @@
 #include <limits.h>
 #include <errno.h>
 
-#define MAXCONF 60
-#define __cplusplus__strings__ 1
-
 typedef struct configuracio{
     char *posicio;
     unsigned profunditat;
 } configuracio;
+// Definim la estructura d'un element de la cua
+typedef struct ElementCua{
+    struct ElementCua *seguent;
+    configuracio *conf;
+} ElementCua;
+// Definim la estructura de la cua
+typedef struct Cua{
+    ElementCua *inici;
+    ElementCua *final;
+} Cua;
 
 char *reservar_config(unsigned mida_conf);
 char *crear_cadena_uniforme(char caracter, unsigned repeticions);
 void canvi_immediat(char *conf_desti, char *conf_inicial, unsigned index_canvi);
 void canvi_salt(char *conf_desti, char *conf_inicial, unsigned index_canvi);
-void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned *num_conf, unsigned num_posicions);
+void canvi(const configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned mida_conf, Cua cua);
+void encua(Cua cua, configuracio *conf);
+configuracio *desencua(Cua cua);
 
 int main(int argc, char *argv[]){
     // Comprovem que el programa es cridi amb un argument
@@ -27,9 +36,12 @@ int main(int argc, char *argv[]){
         fprintf(stderr,"ERROR: El programa s'ha de cridar amb un argument\n");
         exit(EXIT_FAILURE);
     }
-    configuracio configuracions[MAXCONF];
     // Configuracio entrada
-    char *conf_inicial=NULL;
+    configuracio *conf_inicial=NULL;
+    if ((conf_inicial = (configuracio *)malloc(sizeof(configuracio))) == NULL){
+        perror("ERROR: No s'ha pogut reservar memoria\n");
+        exit(EXIT_FAILURE);
+    }
     // Nombre de caracters de les configuracions
     unsigned mida_conf;
     // Punter per trobar els errors a l'entrada
@@ -45,11 +57,13 @@ int main(int argc, char *argv[]){
         // Comprovem que tots els caracters siguin D o E o _
         for (unsigned i=0; i<mida_conf; i++){
             if (argv[1][i] != 'D' && argv[1][i] != 'E' && argv[1][i] != '_'){
+                fprintf(stderr, "ERROR: Els arguments d'entrada han de ser o un enter positiu o una cadena dels caracters E, D i _\n");
+                exit(EXIT_FAILURE);
             }
         }
         // Reservem tant espai com per la cadena introduida (inclou el \0)
-        conf_inicial = reservar_config(mida_conf);
-        strcpy(conf_inicial, argv[1]);
+        conf_inicial->posicio = reservar_config(mida_conf);
+        strcpy(conf_inicial->posicio, argv[1]);
     }
     else if (errno == ERANGE){
             perror("ERROR: Argument no valid o fora de rang\n");
@@ -65,40 +79,38 @@ int main(int argc, char *argv[]){
     else {
         mida_conf = (unsigned)(2*n + 1);
         // Reservem memoria pel num de caracters + \0
-        conf_inicial = reservar_config(mida_conf+1);
+        conf_inicial->posicio = reservar_config(mida_conf+1);
         char *cadena_d = crear_cadena_uniforme('D', n);
         char *cadena_e = crear_cadena_uniforme('E', n);
         // Copiem n Ds a la cadena conf_inicial, afegim un _ i concatenem n Es a la cadena
-        sprintf(conf_inicial, "%s_%s", cadena_d, cadena_e);
+        sprintf(conf_inicial->posicio, "%s_%s", cadena_d, cadena_e);
         free(cadena_d);
         free(cadena_e);
     }
+    Cua cua={NULL, NULL};
+    conf_inicial->profunditat = 0;
+    encua(cua, conf_inicial);
 
-    configuracions[0].posicio = conf_inicial;
-    configuracions[0].profunditat = 0;
+    printf("Configuració inicial: %s\n", conf_inicial->posicio);
 
-    printf("Configuració inicial: %s\n",configuracions[0].posicio);
-
-    unsigned numconfactual = 0, numconf = 1;
-    char *configuracio_actual=reservar_config(mida_conf);
-    while(numconfactual < numconf && numconf < MAXCONF){
-    strcpy(configuracio_actual, configuracions[numconfactual].posicio);
-    for(unsigned i = 0; i < mida_conf; i++){
-        if((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == '_') || (configuracio_actual[i+1] == 'E' && configuracio_actual[i]  == '_')){
-            canvi(&configuracions[numconf], &configuracions[numconfactual], i, 1, &numconf, mida_conf);
-        }
-        if (i < (mida_conf-1)){
-            if ((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == 'E' && configuracio_actual[i+2] == '_') || (configuracio_actual[i] == '_' && configuracio_actual[i+1] == 'D' && configuracio_actual[i+2] == 'E')){
-                canvi(&configuracions[numconf], &configuracions[numconfactual], i, 2, &numconf, mida_conf);
+    while(cua.inici != NULL){
+        configuracio *configuracio_actual = desencua(cua);
+        char *pos_actual = configuracio_actual->posicio;
+        for(unsigned i = 0; i < mida_conf; i++){
+            if((pos_actual[i] == 'D' && pos_actual[i+1] == '_') || (pos_actual[i+1] == 'E' && pos_actual[i]  == '_')){
+                canvi(configuracio_actual, i, 1, mida_conf, cua);
+            }
+            if (i < (mida_conf-1)){
+                if ((pos_actual[i] == 'D' && pos_actual[i+1] == 'E' && pos_actual[i+2] == '_') || (pos_actual[i] == '_' && pos_actual[i+1] == 'D' && pos_actual[i+2] == 'E')){
+                    canvi(configuracio_actual, i, 2, mida_conf, cua);
+                }
             }
         }
-    }
-    numconfactual ++;
-    }
-    if (numconf == MAXCONF){
-        printf("Hem assolit el màxim de configuracions (%d) i pot ser no hem vist totes les possibilitats.", MAXCONF);
+        free(configuracio_actual->posicio);
+        free(configuracio_actual);
     }
     printf("\n");
+    // Alliberem memoria
     return 0;
 }
 char *reservar_config(unsigned mida_conf){
@@ -119,9 +131,13 @@ char *crear_cadena_uniforme(char caracter, unsigned repeticions){
     cadena[repeticions] = '\0';
     return cadena;
 }
-void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned *num_conf, unsigned num_posicions){
+void canvi(const configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned mida_conf, Cua cua){
+    configuracio *conf_desti=NULL;
+    if ((conf_desti = (configuracio *)malloc(sizeof(configuracio))) == NULL){
+        perror("ERROR: No s'ha pogut reservar memoria\n");
+    }
     // Reservem memoria per la posicio a la configuracio de desti
-    conf_desti->posicio = reservar_config(num_posicions);
+    conf_desti->posicio = reservar_config(mida_conf);
     
     unsigned index_lletra = index_canvi;
     unsigned index_ = index_canvi + tipus_canvi;
@@ -136,5 +152,35 @@ void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_
     }
     conf_desti->profunditat = conf_inicial->profunditat + 1;
     printf("%s -(%u,%u)-> %s (profunditat = %u)\n",conf_inicial->posicio, index_lletra, index_,  conf_desti->posicio, conf_desti->profunditat);
-    (*num_conf)++;
+    // Encuem la configuracio
+    encua(cua, conf_desti);
+}
+void encua(Cua cua, configuracio *conf){
+    ElementCua *element=NULL;
+    if ((element = (ElementCua *)malloc(sizeof(ElementCua))) == NULL){
+        perror("ERROR: No s'ha pogut reservar memoria\n");
+        exit(EXIT_FAILURE);
+    }
+    element->conf = conf;
+    element->seguent = NULL;
+    if (cua.inici == NULL){
+        cua.inici = element;
+        cua.final = cua.inici;
+        return;
+    }
+    cua.final->seguent = element;
+    cua.final = element;
+}
+configuracio *desencua(Cua cua){
+    if (cua.final == NULL){
+        return NULL;
+    }
+    ElementCua *element = cua.inici;
+    configuracio *conf = element->conf;
+    cua.inici = element->seguent;
+    free(element);
+    if (cua.inici == NULL){
+        cua.final = cua.inici;
+    }
+    return conf;
 }
