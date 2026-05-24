@@ -16,7 +16,7 @@ typedef struct configuracio{
 } configuracio;
 
 char *reservar_config(unsigned mida_conf);
-char *crear_cadena_uniforme(char *caracter, unsigned repeticions);
+char *crear_cadena_uniforme(char caracter, unsigned repeticions);
 void canvi_immediat(char *conf_desti, char *conf_inicial, unsigned index_canvi);
 void canvi_salt(char *conf_desti, char *conf_inicial, unsigned index_canvi);
 void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned *num_conf, unsigned num_posicions);
@@ -64,13 +64,14 @@ int main(int argc, char *argv[]){
     // Si entra aqui es que han entrat un nombre dintre del rang posat
     else {
         mida_conf = (unsigned)(2*n + 1);
-        reservar_config(mida_conf+1);
-        char *cadena_d = crear_cadena_uniforme("D", n);
-        char *cadena_e = crear_cadena_uniforme("E", n);
+        // Reservem memoria pel num de caracters + \0
+        conf_inicial = reservar_config(mida_conf+1);
+        char *cadena_d = crear_cadena_uniforme('D', n);
+        char *cadena_e = crear_cadena_uniforme('E', n);
         // Copiem n Ds a la cadena conf_inicial, afegim un _ i concatenem n Es a la cadena
-        conf_inicial = strcat(conf_inicial, cadena_d);
-        strcat(conf_inicial, "_");
-        conf_inicial = strcat(conf_inicial, cadena_e);
+        sprintf(conf_inicial, "%s_%s", cadena_d, cadena_e);
+        free(cadena_d);
+        free(cadena_e);
     }
 
     configuracions[0].posicio = conf_inicial;
@@ -86,7 +87,7 @@ int main(int argc, char *argv[]){
         if((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == '_') || (configuracio_actual[i+1] == 'E' && configuracio_actual[i]  == '_')){
             canvi(&configuracions[numconf], &configuracions[numconfactual], i, 1, &numconf, mida_conf);
         }
-        if (i < 3){
+        if (i < (mida_conf-1)){
             if ((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == 'E' && configuracio_actual[i+2] == '_') || (configuracio_actual[i] == '_' && configuracio_actual[i+1] == 'D' && configuracio_actual[i+2] == 'E')){
                 canvi(&configuracions[numconf], &configuracions[numconfactual], i, 2, &numconf, mida_conf);
             }
@@ -100,17 +101,6 @@ int main(int argc, char *argv[]){
     printf("\n");
     return 0;
 }
-
-// void canvi_immediat(char *conf_desti, char *conf_inicial, unsigned index_canvi){
-//     strcpy(conf_desti, conf_inicial);
-//     conf_desti[index_canvi] = conf_inicial[index_canvi+1];
-//     conf_desti[index_canvi+1] = conf_inicial[index_canvi];
-// }
-// void canvi_salt(char *conf_desti, char *conf_inicial, unsigned index_canvi){
-//     strcpy(conf_desti, conf_inicial);
-//     conf_desti[index_canvi] = conf_inicial[index_canvi+2];
-//     conf_desti[index_canvi+2] = conf_inicial[index_canvi];
-// }
 char *reservar_config(unsigned mida_conf){
     char *config=NULL;
     if ((config =(char *)calloc(mida_conf, sizeof(char))) == NULL){
@@ -119,13 +109,14 @@ char *reservar_config(unsigned mida_conf){
     }
     return config;
 }
-char *crear_cadena_uniforme(char *caracter, unsigned repeticions){
-    char *cadena=NULL;
+char *crear_cadena_uniforme(char caracter, unsigned repeticions){
+    char *cadena= NULL;
     // Reservem i inicialitzem a 0 la cadena amb el nombre de caracters + \0
     cadena = reservar_config(repeticions+1);
     for (unsigned i=0; i<repeticions; i++){
-        strcat(cadena,caracter);
+        cadena[i] = caracter;
     }
+    cadena[repeticions] = '\0';
     return cadena;
 }
 void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned *num_conf, unsigned num_posicions){
