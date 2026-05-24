@@ -24,7 +24,7 @@ void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_
 int main(int argc, char *argv[]){
     // Comprovem que el programa es cridi amb un argument
     if (argc != 2){
-        fprintf(stderr,"ERROR: El programa s'ha de cridar amb un argument\n");
+        fprintf(stderr,"ERROR: El programa s'ha de cridar amb un argument\n"); //NOLINT
         exit(EXIT_FAILURE);
     }
     configuracio configuracions[MAXCONF];
@@ -42,16 +42,19 @@ int main(int argc, char *argv[]){
     if (error == argv[1]){
         // Llegeixo la mida de la cadena introduida i la transformo en unsigned perque no farem configuracions amb mes de 4294967295 posicions
         mida_conf = (unsigned)strlen(argv[1]);
+        // Afegim el caracter \0
+        mida_conf++;
+
         // Comprovem que tots els caracters siguin D o E o _
         for (unsigned i=0; i<mida_conf; i++){
             if (argv[1][i] != 'D' && argv[1][i] != 'E' && argv[1][i] != '_'){
-                fprintf(stderr, "ERROR: Els arguments d'entrada han de ser o un enter positiu o una cadena dels caracters E, D i _\n");
+                fprintf(stderr, "ERROR: Els arguments d'entrada han de ser o un enter positiu o una cadena dels caracters E, D i _\n"); //NOLINT
                 exit(EXIT_FAILURE);
             }
         }
         // Reservem tant espai com per la cadena introduida (inclou el \0)
         conf_inicial = reservar_config(mida_conf);
-        strcpy(conf_inicial, argv[1]);
+        strlcpy(conf_inicial, argv[1], mida_conf);
     }
     else if (errno == ERANGE){
             perror("ERROR: Argument no valid o fora de rang\n");
@@ -60,18 +63,19 @@ int main(int argc, char *argv[]){
     }
     // He posat un interval maxim per la n, ja que amb n massa gran el programa podria petar
     else if (n < 0 || n > 65){
-        fprintf(stderr, "ERROR: L'entrada no pot ser un nombre negatiu ni major de 65");
+        fprintf(stderr, "ERROR: L'entrada no pot ser un nombre negatiu ni major de 65"); //NOLINT
         exit(EXIT_FAILURE);
     }
     // Si entra aqui es que han entrat un nombre dintre del rang posat
     else {
-        mida_conf = (unsigned)(2*n + 1);
+        // La configuracio te n D, n E, 1 _ i 1 \0
+        mida_conf = (unsigned)(2*n + 2);
         // Reservem memoria pel num de caracters + \0
         conf_inicial = reservar_config(mida_conf+1);
         char *cadena_d = crear_cadena_uniforme('D', n);
         char *cadena_e = crear_cadena_uniforme('E', n);
         // Copiem n Ds a la cadena conf_inicial, afegim un _ i concatenem n Es a la cadena
-        sprintf(conf_inicial, "%s_%s", cadena_d, cadena_e);
+        sprintf(conf_inicial, "%s_%s", cadena_d, cadena_e); //NOLINT
         free(cadena_d);
         free(cadena_e);
     }
@@ -84,21 +88,26 @@ int main(int argc, char *argv[]){
     unsigned numconfactual = 0, numconf = 1;
     char *configuracio_actual=reservar_config(mida_conf);
     while(numconfactual < numconf && numconf < MAXCONF){
-    strcpy(configuracio_actual, configuracions[numconfactual].posicio);
-    for(unsigned i = 0; i < mida_conf; i++){
-        if((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == '_') || (configuracio_actual[i+1] == 'E' && configuracio_actual[i]  == '_')){
-            canvi(&configuracions[numconf], &configuracions[numconfactual], i, 1, &numconf, mida_conf);
-        }
-        if (i < (mida_conf-1)){
-            if ((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == 'E' && configuracio_actual[i+2] == '_') || (configuracio_actual[i] == '_' && configuracio_actual[i+1] == 'D' && configuracio_actual[i+2] == 'E')){
-                canvi(&configuracions[numconf], &configuracions[numconfactual], i, 2, &numconf, mida_conf);
+        strlcpy(configuracio_actual, configuracions[numconfactual].posicio, mida_conf);
+        for(unsigned i = 0; i<(mida_conf-1); i++){
+            if((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == '_') || (configuracio_actual[i+1] == 'E' && configuracio_actual[i]  == '_')){
+                canvi(&configuracions[numconf], &configuracions[numconfactual], i, 1, &numconf, mida_conf);
+            }
+            if (i < (mida_conf-2)){
+                if ((configuracio_actual[i] == 'D' && configuracio_actual[i+1] == 'E' && configuracio_actual[i+2] == '_') || (configuracio_actual[i] == '_' && configuracio_actual[i+1] == 'D' && configuracio_actual[i+2] == 'E')){
+                    canvi(&configuracions[numconf], &configuracions[numconfactual], i, 2, &numconf, mida_conf);
+                }
             }
         }
-    }
-    numconfactual ++;
+        numconfactual++;
     }
     if (numconf == MAXCONF){
         printf("Hem assolit el màxim de configuracions (%d) i pot ser no hem vist totes les possibilitats.", MAXCONF);
+    }
+    // Alliberem memoria
+    free(configuracio_actual);
+    for (unsigned i=0; i<numconf; i++){
+        free(configuracions[i].posicio);
     }
     printf("\n");
     return 0;
@@ -121,14 +130,14 @@ char *crear_cadena_uniforme(char caracter, unsigned repeticions){
     cadena[repeticions] = '\0';
     return cadena;
 }
-void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned *num_conf, unsigned num_posicions){
+void canvi(configuracio *conf_desti, configuracio *conf_inicial, unsigned index_canvi, unsigned tipus_canvi, unsigned *num_conf, unsigned mida_conf){
     // Reservem memoria per la posicio a la configuracio de desti
-    conf_desti->posicio = reservar_config(num_posicions);
+    conf_desti->posicio = reservar_config(mida_conf);
     
     unsigned index_lletra = index_canvi;
     unsigned index_ = index_canvi + tipus_canvi;
 
-    strcpy(conf_desti->posicio, conf_inicial->posicio);
+    strlcpy(conf_desti->posicio, conf_inicial->posicio, mida_conf);
     conf_desti->posicio[index_canvi] = conf_inicial->posicio[index_canvi+tipus_canvi];
     conf_desti->posicio[index_canvi+tipus_canvi] = conf_inicial->posicio[index_canvi];
 
