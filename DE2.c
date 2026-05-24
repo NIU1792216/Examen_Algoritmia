@@ -45,6 +45,8 @@ int main(int argc, char *argv[]){
         // Comprovem que tots els caracters siguin D o E o _
         for (unsigned i=0; i<mida_conf; i++){
             if (argv[1][i] != 'D' && argv[1][i] != 'E' && argv[1][i] != '_'){
+                fprintf(stderr, "ERROR: Els arguments d'entrada han de ser o un enter positiu o una cadena dels caracters E, D i _\n");
+                exit(EXIT_FAILURE);
             }
         }
         // Reservem tant espai com per la cadena introduida (inclou el \0)
